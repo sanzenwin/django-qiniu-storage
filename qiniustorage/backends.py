@@ -21,6 +21,7 @@ from django.conf import settings
 from django.core.files.base import File
 from django.core.files.storage import Storage
 from django.core.exceptions import ImproperlyConfigured, SuspiciousOperation
+
 try:
     from django.utils.encoding import force_text
 except ImportError:
@@ -49,19 +50,6 @@ def get_qiniu_config(name, default=None):
             "variable or in setting.py" % name)
 
 
-QINIU_ACCESS_KEY = get_qiniu_config('QINIU_ACCESS_KEY')
-QINIU_SECRET_KEY = get_qiniu_config('QINIU_SECRET_KEY')
-QINIU_BUCKET_NAME = get_qiniu_config('QINIU_BUCKET_NAME')
-QINIU_BUCKET_DOMAIN = get_qiniu_config('QINIU_BUCKET_DOMAIN', '').rstrip('/')
-QINIU_SECURE_URL = get_qiniu_config('QINIU_SECURE_URL', 'False')
-
-if isinstance(QINIU_SECURE_URL, six.string_types):
-    if QINIU_SECURE_URL.lower() in ('true', '1'):
-        QINIU_SECURE_URL = True
-    else:
-        QINIU_SECURE_URL = False
-
-
 @deconstructible
 class QiniuStorage(Storage):
     """
@@ -69,19 +57,18 @@ class QiniuStorage(Storage):
     """
     location = ""
 
-    def __init__(
-            self,
-            access_key=QINIU_ACCESS_KEY,
-            secret_key=QINIU_SECRET_KEY,
-            bucket_name=QINIU_BUCKET_NAME,
-            bucket_domain=QINIU_BUCKET_DOMAIN,
-            secure_url=QINIU_SECURE_URL):
+    bucket_name_key = 'QINIU_BUCKET_NAME'
+    user_domain_key = 'QINIU_BUCKET_DOMAIN'
 
-        self.auth = Auth(access_key, secret_key)
-        self.bucket_name = bucket_name
-        self.bucket_domain = bucket_domain
+    def __init__(self, **kwargs):
+        self.auth = Auth(
+            get_qiniu_config('QINIU_ACCESS_KEY'),
+            get_qiniu_config('QINIU_SECRET_KEY')
+        )
+        self.bucket_name = get_qiniu_config(self.bucket_name_key)
+        self.bucket_domain = get_qiniu_config(self.user_domain_key, '').rstrip('/')
         self.bucket_manager = BucketManager(self.auth)
-        self.secure_url = secure_url
+        self.secure_url = get_qiniu_config('QINIU_SECURE_URL', 'False').lower() in ('true', '1')
 
     def _clean_name(self, name):
         """
@@ -201,6 +188,9 @@ class QiniuStorage(Storage):
 
 
 class QiniuMediaStorage(QiniuStorage):
+    bucket_name_key = 'QINIU_BUCKET_NAME_MEDIA'
+    user_domain_key = 'QINIU_BUCKET_DOMAIN_MEDIA'
+
     def __init__(self, *args, **kwargs):
         warnings.warn(
             "QiniuMediaStorage is deprecated, and will be removed in the future."
@@ -213,10 +203,16 @@ class QiniuMediaStorage(QiniuStorage):
 
 
 class QiniuStaticStorage(QiniuStorage):
+    bucket_name_key = 'QINIU_BUCKET_NAME_STATIC'
+    user_domain_key = 'QINIU_BUCKET_DOMAIN_STATIC'
+
     location = os.path.basename(settings.STATIC_ROOT) or "static"
 
 
 class QiniuPrivateStorage(QiniuStorage):
+    bucket_name_key = 'QINIU_BUCKET_NAME_MEDIA'
+    user_domain_key = 'QINIU_BUCKET_DOMAIN_MEDIA'
+
     def url(self, name):
         raw_url = super(QiniuPrivateStorage, self).url(name)
         return force_text(self.auth.private_download_url(raw_url))
