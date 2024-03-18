@@ -17,8 +17,8 @@ except IOError:
     long_description = ""
 
 setup(
-    name="django-qiniu-storage",
-    version='2.3.1',
+    name="django-qiniu-storage-full",
+    version='2.3.101',
     description="Django storage for Qiniu Cloud Storage",
     long_description=long_description,
 
