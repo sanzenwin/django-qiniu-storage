@@ -8,8 +8,11 @@ import posixpath
 import warnings
 
 import six
-from six.moves import cStringIO as StringIO
-from six.moves.urllib_parse import urljoin, urlparse
+
+try:
+    from urllib.parse import urljoin, urlparse
+except ImportError:
+    from urlparse import urljoin, urlparse
 
 from qiniu import Auth, BucketManager, put_data
 import requests
@@ -18,7 +21,12 @@ from django.conf import settings
 from django.core.files.base import File
 from django.core.files.storage import Storage
 from django.core.exceptions import ImproperlyConfigured, SuspiciousOperation
-from django.utils.encoding import force_text, force_bytes, filepath_to_uri
+try:
+    from django.utils.encoding import force_text
+except ImportError:
+    from django.utils.encoding import force_str as force_text
+from django.utils.encoding import force_bytes, filepath_to_uri
+
 from django.utils.deconstruct import deconstructible
 
 from .utils import QiniuError, bucket_lister
@@ -47,12 +55,12 @@ QINIU_BUCKET_NAME = get_qiniu_config('QINIU_BUCKET_NAME')
 QINIU_BUCKET_DOMAIN = get_qiniu_config('QINIU_BUCKET_DOMAIN', '').rstrip('/')
 QINIU_SECURE_URL = get_qiniu_config('QINIU_SECURE_URL', 'False')
 
-
 if isinstance(QINIU_SECURE_URL, six.string_types):
     if QINIU_SECURE_URL.lower() in ('true', '1'):
         QINIU_SECURE_URL = True
     else:
         QINIU_SECURE_URL = False
+
 
 @deconstructible
 class QiniuStorage(Storage):
@@ -200,11 +208,12 @@ class QiniuMediaStorage(QiniuStorage):
             "For general use, please choose QiniuPrivateStorage instead."
             , DeprecationWarning)
         super(QiniuMediaStorage, self).__init__(*args, **kwargs)
-    location = settings.MEDIA_ROOT
+
+    location = os.path.basename(settings.MEDIA_ROOT)
 
 
 class QiniuStaticStorage(QiniuStorage):
-    location = settings.STATIC_ROOT or "static"
+    location = os.path.basename(settings.STATIC_ROOT) or "static"
 
 
 class QiniuPrivateStorage(QiniuStorage):
